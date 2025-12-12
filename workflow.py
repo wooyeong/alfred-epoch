@@ -28,30 +28,26 @@ class EpochData:
 
     def __post_init__(self):
         self.epoch_s = int(self.timestamp)
-        
+
         d = Decimal(str(self.timestamp))
         self.epoch_ms = int(d * 1000)
         self.epoch_us = int(d * 1_000_000)
         self.epoch_ns = int(d * 1_000_000_000)
-        
+
         self.dt_local = datetime.fromtimestamp(self.timestamp).astimezone()
         self.dt_utc = datetime.fromtimestamp(self.timestamp, tz=timezone.utc)
 
     def to_display_items_from_epoch(self, show_now=False):
-        prefix = "Now: " if show_now else ""
-        suffix_ms = " in ms" if show_now else ""
-        suffix_s = " in s" if show_now else ""
-        suffix_us = " in us" if show_now else ""
-        suffix_ns = " in ns" if show_now else ""
+        now_label = " (Now)" if show_now else ""
 
         return [
             DisplayItem(self.dt_local.strftime("%Y-%m-%d %H:%M:%S %Z"), f"Local time ({self.dt_local.strftime('%a')})"),
             DisplayItem(self.dt_utc.strftime("%Y-%m-%d %H:%M:%S UTC"), f"UTC time ({self.dt_utc.strftime('%a')})"),
             DisplayItem(self.dt_local.isoformat(), "ISO 8601 format"),
-            DisplayItem(f"{prefix}{self.epoch_ms}{suffix_ms}", "Milliseconds"),
-            DisplayItem(f"{prefix}{self.epoch_s}{suffix_s}", "Seconds"),
-            DisplayItem(f"{prefix}{self.epoch_us}{suffix_us}", "Microseconds"),
-            DisplayItem(f"{prefix}{self.epoch_ns}{suffix_ns}", "Nanoseconds"),
+            DisplayItem(str(self.epoch_ms), f"Milliseconds{now_label}"),
+            DisplayItem(str(self.epoch_s), f"Seconds{now_label}"),
+            DisplayItem(str(self.epoch_us), f"Microseconds{now_label}"),
+            DisplayItem(str(self.epoch_ns), f"Nanoseconds{now_label}"),
         ]
 
     def to_display_items_from_date(self):
@@ -90,7 +86,7 @@ def parse_datetime_string(date_str):
         "%Y %m %d %H:%M:%S",
         "%Y %m %d",
     ]
-    
+
     formats_without_year = [
         "%m/%d",
         "%m %d",
@@ -102,7 +98,7 @@ def parse_datetime_string(date_str):
             return dt.replace(tzinfo=None).astimezone()
         except ValueError:
             continue
-    
+
     for fmt in formats_without_year:
         try:
             dt = datetime.strptime(date_str, fmt)
@@ -160,7 +156,7 @@ def parse_time_operations(query):
 def parse_epoch_value(epoch_str):
     epoch_value = Decimal(epoch_str)
     digit_count = len(epoch_str)
-    
+
     if digit_count <= 11:
         return float(epoch_value)
     elif digit_count <= 14:
@@ -174,9 +170,9 @@ def parse_epoch_value(epoch_str):
 def process_query(query):
     if not query:
         return time.time(), True, True
-    
+
     operation_match = re.search(r'(^|[\s])[+\-]\s*\d+\s*\w+', query)
-    
+
     if operation_match:
         operation_start = operation_match.start()
         base_part = query[:operation_start].strip()
@@ -184,7 +180,7 @@ def process_query(query):
     else:
         base_part = query.strip()
         time_delta = timedelta()
-    
+
     if not base_part:
         base_timestamp = time.time()
         is_epoch_input = True
@@ -200,27 +196,27 @@ def process_query(query):
         base_timestamp = dt.timestamp()
         is_epoch_input = False
         show_now = False
-    
+
     final_timestamp = base_timestamp + time_delta.total_seconds()
-    
+
     return final_timestamp, is_epoch_input, show_now
 
 
 def main():
     query = sys.argv[1] if len(sys.argv) > 1 else ""
-    
+
     timestamp, is_epoch_input, show_now = process_query(query)
-    
+
     if timestamp is None:
         items = []
     else:
         epoch_data = EpochData(timestamp)
-        
+
         if is_epoch_input:
             display_items = epoch_data.to_display_items_from_epoch(show_now=show_now)
         else:
             display_items = epoch_data.to_display_items_from_date()
-        
+
         items = [create_alfred_item(item.title, item.subtitle, item.arg) for item in display_items]
 
     result = {"items": items}
